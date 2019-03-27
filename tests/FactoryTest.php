@@ -160,6 +160,38 @@ class FactoryTest extends BaseTestCase
         $loop->run();
     }
 
+	public function testConnectWithSpecialCharactersCredential()
+    {
+		  $this->expectOutputString('connected.closed.');
+		
+		  $username = $this->getConnectionOptions()['user'];
+		  passthru(<<<EOT
+mysql -e "SET PASSWORD FOR '{$username}'@'localhost' = PASSWORD('password+')"
+EOT
+		);	
+
+        $loop = \React\EventLoop\Factory::create();
+        $factory = new Factory($loop);
+
+        $uri = $this->getConnectionString(array('passwd' => 'password+'));
+        $factory->createConnection($uri)->then(function (ConnectionInterface $connection) {
+            echo 'connected.';
+            $connection->quit()->then(function () {
+                echo 'closed.';
+            });
+        }, 'printf')->then(null, 'printf')
+		  ->always(function (){
+			$username = $this->getConnectionOptions()['user'];
+			$password = $this->getConnectionOptions()['passwd'];
+			passthru(<<<EOT
+mysql -e "SET PASSWORD FOR '{$username}'@'localhost' = PASSWORD('{$password}')"
+EOT
+		   );	
+		  });
+
+        $loop->run();
+    }
+    
     public function testConnectWithValidAuthAndWithoutDbNameWillRunUntilQuit()
     {
         $this->expectOutputString('connected.closed.');
